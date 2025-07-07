@@ -1,0 +1,183 @@
+_schema-version: 3.3.0
+ID: mtapptest
+description: A simple CAP project.
+version: 1.0.0
+modules:
+- name: mtapptest-srv
+  type: nodejs
+  path: gen/srv
+  requires:
+  - name: mtapptest-auth
+  - name: mtapptest-db
+  - name: mtapptest-destination
+  provides:
+  - name: srv-api
+    properties:
+      srv-url: ${default-url}
+  parameters:
+    buildpack: nodejs_buildpack
+    instances: 1
+    memory: 512M
+    disk-quota: 1G
+  build-parameters:
+    builder: npm-ci
+- name: mtapptest-mtx
+  type: nodejs
+  path: gen/mtx/sidecar
+  requires:
+  - name: app-api
+    properties:
+      SUBSCRIPTION_URL: ~{app-protocol}://\${tenant_subdomain}-~{app-uri}
+  - name: mtapptest-registry
+  - name: mtapptest-db
+  - name: mtapptest-html5-runtime
+  - name: mtapptest-auth
+  - name: mtapptest-destination
+  provides:
+  - name: mtx-api
+    properties:
+      mtx-url: ${default-url}
+  parameters:
+    disk-quota: 512M
+    instances: 1
+    memory: 256M
+  build-parameters:
+    builder: npm-ci
+- name: mtapptest
+  type: approuter.nodejs
+  properties:
+    TENANT_HOST_PATTERN: ^(.*)-${default-uri}
+  path: app/router
+  requires:
+  - name: srv-api
+    group: destinations
+    properties:
+      forwardAuthToken: true
+      name: srv-api
+      url: ~{srv-url}
+  - name: mtx-api
+    group: destinations
+    properties:
+      name: mtx-api
+      url: ~{mtx-url}
+  - name: mtapptest-auth
+  - name: mtapptest-destination
+  - name: mtapptest-html5-runtime
+  provides:
+  - name: app-api
+    properties:
+      app-protocol: ${protocol}
+      app-uri: ${default-uri}
+  parameters:
+    disk-quota: 256M
+    keep-existing-routes: true
+    memory: 256M
+- name: mtapptest-app-deployer
+  type: com.sap.application.content
+  path: gen
+  requires:
+  - name: mtapptest-html5-repo-host
+    parameters:
+      content-target: true
+  build-parameters:
+    build-result: app/
+    requires:
+    - artifacts:
+      - productui.zip
+      name: productui
+      target-path: app/
+- name: productui
+  type: html5
+  path: app/productui
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+resources:
+- name: mtapptest-auth
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      oauth2-configuration:
+        redirect-uris:
+        - https://~{app-api/app-uri}/**
+        - https://*.cfapps.us10-001.hana.ondemand.com/**
+      tenant-mode: shared
+      xsappname: mtapptest-${org}-${space}
+    path: ./xs-security.json
+    service: xsuaa
+    service-plan: application
+  requires:
+  - name: app-api
+- name: mtapptest-registry
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      appName: mtapptest-${org}-${space}
+      appUrls:
+        callbackTimeoutMillis: 300000
+        getDependencies: ~{mtx-api/mtx-url}/-/cds/saas-provisioning/dependencies
+        onSubscription: ~{mtx-api/mtx-url}/-/cds/saas-provisioning/tenant/{tenantId}
+        onSubscriptionAsync: true
+        onUnSubscriptionAsync: true
+        onUpdateDependenciesAsync: true
+      category: Category
+      description: A simple CAP project.
+      displayName: mtapptest
+      xsappname: mtapptest-${org}-${space}
+    service: saas-registry
+    service-plan: application
+  requires:
+  - name: mtx-api
+- name: mtapptest-db
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: service-manager
+    service-plan: container
+- name: mtapptest-destination
+  type: org.cloudfoundry.managed-service
+  requires:
+    - name: srv-api
+  parameters:
+    config:
+      HTML5Runtime_enabled: false
+      init_data:
+        instance:
+          destinations:
+          - Authentication: NoAuthentication
+            Name: ui5
+            ProxyType: Internet
+            Type: HTTP
+            URL: https://ui5.sap.com
+          - Authentication: NoAuthentication
+            HTML5.DynamicDestination: true
+            HTML5.ForwardAuthToken: true
+            Name: srv-api
+            ProxyType: Internet
+            Type: HTTP
+            URL: ~{srv-api/srv-url}            
+          existing_destinations_policy: update
+    service: destination
+    service-plan: lite
+- name: mtapptest-html5-repo-host
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: html5-apps-repo
+    service-plan: app-host
+- name: mtapptest-html5-runtime
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: html5-apps-repo
+    service-plan: app-runtime
+parameters:
+  deploy_mode: html5-repo
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+  - builder: custom
+    commands:
+    - npm ci
+    - npx cds build --production
