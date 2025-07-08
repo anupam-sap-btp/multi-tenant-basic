@@ -1,8 +1,8 @@
 const cds = require('@sap/cds');
 const { executeHttpRequest } = require('@sap-cloud-sdk/http-client')
-const { retrieveJwt } = require('@sap-cloud-sdk/connectivity');
+const { getDestination, retrieveJwt } = require('@sap-cloud-sdk/connectivity');
 
-module.exports = cds.service.impl( (srv) => {
+module.exports = cds.service.impl((srv) => {
 
     srv.on('AddStock', add_stock);
 
@@ -14,10 +14,6 @@ module.exports = cds.service.impl( (srv) => {
     });
 
     srv.on('test', async () => {
-        // const response = await executeHttpRequest(
-        //     {destinationName: 'testdest'},
-        //     {method: 'get', url: '/odata/v4/product/Products'
-        // })
         const response = (await cds.connect.to('test-dest')).send({
             method: 'get', path: '/odata/v4/product/Products'
         });
@@ -25,9 +21,10 @@ module.exports = cds.service.impl( (srv) => {
         return response;
     });
 
-    srv.after('READ', 'Products', (lines) => { 
-        if(Array.isArray(lines)) {
-        lines.map((line) => { line.desc = line.ID + ' test' }) }
+    srv.after('READ', 'Products', (lines) => {
+        if (Array.isArray(lines)) {
+            lines.map((line) => { line.desc = line.ID + ' test' })
+        }
         else {
             lines.desc = lines.ID + ' test';
         }

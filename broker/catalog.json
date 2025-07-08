@@ -1,0 +1,17 @@
+{
+  "services": [
+    {
+      "name": "mtapptest-servicebroker",
+      "description": "mtapptest service broker",
+      "bindable": true,
+      "plans": [
+        {
+          "name": "fullaccess",
+          "description": "Full Access plan",
+          "id": "cd7863de-512e-40a8-bed5-ea3b538951a6"
+        }
+      ],
+      "id": "ba8f0a7a-55b6-4f34-8db4-a41f88ddbfe6"
+    }
+  ]
+}

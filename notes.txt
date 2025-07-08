@@ -177,3 +177,53 @@ module.exports = cds.server;
         const response = (await cds.connect.to('test-dest')).send({
             method: 'get', path: '/odata/v4/product/Products'
         });
+
+
+Enabling API Access from consumer. This cannot fetch data from tenant specific destination yet
+1. Create broker service: add broker folder, npm init, npm install @sap/sbf, add catalog.json. Role
+specific plans can be defined. run npx gen-catalog-ids to generate ids for the service and plans
+2. xs-security.json of the main app should have "authorities-inheritance": false
+3. Add broker module in mta.yaml and plan with authorities. the plan name is the names from config.json
+and authorities are the ones from xs-security.json
+4. The xsuaa resource should have service-plan: broker
+
+Consuming the broker in consumer subaccount
+1. use BTP CLI to login: btp login, btp list accounts/subaccounts, btp target --subaccount <subaccount id of the consumer account>
+2. Get the service broker url from subscriber, get the user name and password from user-provided variables of the broker
+3. Register the service: btp register services/broker --name poetry-slams-servicebroker --url <provider service broker url> --user "<user>" --password "<password>" --subaccount <consumer subaccount id>
+4. Now from BTP cockpit create an instance of the broker. Choose environment as others. Give a unique name of the instance and put the 
+following JSON config
+{ "xs-security": { "xsappname": "<name of the instance>", "oauth2-configuration": { "credential-types": ["binding-secret"] } } }
+5. Create a binding and use the credentials to authenticate and then fetch the records
+
+
+
+
+
+This part did not work - tried to call destination without dependencies
+        try {
+            // Check if the destination exists using the SAP Cloud SDK reusable getDestination function
+            // The incoming JWT-token contains the subaccount information to retrieve the destination for the correct tenant
+            const jwt = retrieveJwt(req) || retrieveJwt(cds.context.http?.req);
+            const dest = await getDestination({
+                destinationName: 'testdest_c',
+                jwt: jwt
+            });
+            console.log(dest.url);
+            const response = await executeHttpRequest(dest,
+                // {destinationName: 'testdest'},
+                {
+                    method: 'get', url: '/odata/v4/product/Products'
+                });
+                return response;
+        } catch (error) {
+            // App reacts error tolerant if the destination cannot be retrieved
+            console.error(`GET_DESTINATION; ${error}`);
+        }
+        return null;
+
+package.json - this is not required Now
+,
+        "destinationOptions": {
+          "selectionStrategy": "alwaysSubscriber"
+        }

@@ -17,7 +17,7 @@ modules:
   parameters:
     buildpack: nodejs_buildpack
     instances: 1
-    memory: 512M
+    memory: 256M
     disk-quota: 1G
   build-parameters:
     builder: npm-ci
@@ -40,7 +40,7 @@ modules:
   parameters:
     disk-quota: 512M
     instances: 1
-    memory: 256M
+    memory: 128M
   build-parameters:
     builder: npm-ci
 - name: mtapptest
@@ -71,7 +71,33 @@ modules:
   parameters:
     disk-quota: 256M
     keep-existing-routes: true
-    memory: 256M
+    memory: 128M
+- name: mtapptest-broker
+  type: nodejs
+  path: broker
+  parameters:
+    disk-quota: 1024M
+    memory: 128M
+    health-check-timeout: 180
+  requires:
+    - name: mtapptest-auth
+    - name: srv-api
+  build-parameters:
+    builder: npm-ci
+  properties:
+    SBF_CATALOG_SUFFIX: ${space} # Make the service broker unique in the deployed space
+    SBF_ENABLE_AUDITLOG: false
+    SBF_BROKER_CREDENTIALS: '{ "${generated-user}": "${generated-password}" }' # use a random password that is generated during deployment (note that this will change the password with every deplyoment)
+    SBF_SERVICE_CONFIG:
+      mtapptest-servicebroker:
+        extend_xssecurity:
+          per_plan:
+            fullaccess:
+              authorities:
+        extend_credentials:
+          shared:
+            endpoints:
+              mtapptest-servicebroker: '~{srv-api/srv-url}' # Tenant-specific OData endpoint for remote integrations    
 - name: mtapptest-app-deployer
   type: com.sap.application.content
   path: gen
@@ -109,7 +135,7 @@ resources:
       xsappname: mtapptest-${org}-${space}
     path: ./xs-security.json
     service: xsuaa
-    service-plan: application
+    service-plan: broker
   requires:
   - name: app-api
 - name: mtapptest-registry
@@ -165,7 +191,7 @@ resources:
             Name: testdest
             ProxyType: Internet
             Type: HTTP
-            URL: https://f330d3fetrial-dev-testapps-n-srv.cfapps.us10-001.hana.ondemand.com              
+            URL: https://mtapptest-dest-01.cfapps.us10-001.hana.ondemand.com              
           existing_destinations_policy: ignore
     service: destination
     service-plan: lite
