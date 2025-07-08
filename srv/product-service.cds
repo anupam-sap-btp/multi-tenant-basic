@@ -7,7 +7,10 @@ service ProductService  {
     actions { @requires: ['admin']
         action AddStock(stock: Integer)  returns String;
     }
+    function test() returns array of Products;
 
+    // type jwtRet { jwt: String, cookie: String }
+    function getjwt() returns String; //{ jwt: String; cookie: String };
 }
 
 annotate ProductService.Products with @(

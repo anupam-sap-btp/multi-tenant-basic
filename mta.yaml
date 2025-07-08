@@ -158,8 +158,15 @@ resources:
             Name: srv-api
             ProxyType: Internet
             Type: HTTP
-            URL: ~{srv-api/srv-url}            
-          existing_destinations_policy: update
+            URL: ~{srv-api/srv-url}
+          - Authentication: NoAuthentication
+            HTML5.DynamicDestination: true
+            HTML5.ForwardAuthToken: true
+            Name: testdest
+            ProxyType: Internet
+            Type: HTTP
+            URL: https://f330d3fetrial-dev-testapps-n-srv.cfapps.us10-001.hana.ondemand.com              
+          existing_destinations_policy: ignore
     service: destination
     service-plan: lite
 - name: mtapptest-html5-repo-host
